@@ -50,7 +50,7 @@ function NavbarContent({ isSignedIn, role, isMock, hasClerkKeys }: { isSignedIn:
                   <Button variant="ghost" size="sm">Dashboard</Button>
                 </Link>
               )}
-              {!isMock && hasClerkKeys && <UserButton afterSignOutUrl="/" />}
+              {!isMock && hasClerkKeys && <UserButton />}
               {isMock && <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center text-white text-xs font-bold">{role[0]}</div>}
             </>
           )}
