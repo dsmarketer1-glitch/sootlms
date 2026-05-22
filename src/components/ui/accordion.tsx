@@ -3,14 +3,14 @@ import { Accordion as AccordionPrimitive } from "@base-ui/react/accordion"
 import { cn } from "@/lib/utils"
 import { ChevronDownIcon, ChevronUpIcon } from "lucide-react"
 
-function Accordion({ 
-  className, 
-  type, 
-  collapsible, 
-  ...props 
-}: React.ComponentProps<typeof AccordionPrimitive.Root> & { 
-  type?: "single" | "multiple"; 
-  collapsible?: boolean; 
+function Accordion({
+  className,
+  type,
+  collapsible,
+  ...props
+}: React.ComponentProps<typeof AccordionPrimitive.Root> & {
+  type?: "single" | "multiple";
+  collapsible?: boolean;
 }) {
   return (
     <AccordionPrimitive.Root

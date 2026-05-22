@@ -8,7 +8,7 @@ export type Course = {
   price: number;
   discountedPrice?: number;
   durationWeeks: number;
-  level: 'Beginner' | 'Intermediate' | 'Advanced';
+  level: 'Beginner' | 'Intermediate' | 'Advanced' | 'All Levels';
   category: string;
   students: string;
   rating: number;

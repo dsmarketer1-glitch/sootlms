@@ -10,14 +10,14 @@ const isPublicRoute = createRouteMatcher([
   "/api/webhooks(.*)", // Razorpay and Clerk webhooks should be public but verified
 ]);
 
-export default clerkMiddleware((auth, request) => {
+export default clerkMiddleware(async (auth, request) => {
   // Bypass Clerk if keys are missing (Dev/Testing mode)
   if (!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY) {
     return;
   }
 
   if (!isPublicRoute(request)) {
-    auth().protect();
+    await auth.protect();
   }
 });
 

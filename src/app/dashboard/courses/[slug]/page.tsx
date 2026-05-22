@@ -33,7 +33,7 @@ export default function CoursePlayerPage({ params }: { params: Promise<{ slug: s
         </div>
         
         <div className="flex-1 overflow-y-auto">
-          <Accordion type="single" collapsible defaultValue="module-0" className="w-full">
+          <Accordion type="single" collapsible defaultValue={["module-0"]} className="w-full">
             {course.modules.map((module, i) => (
               <AccordionItem key={i} value={`module-${i}`} className="border-b px-2">
                 <AccordionTrigger className="hover:no-underline text-sm font-bold py-4">
