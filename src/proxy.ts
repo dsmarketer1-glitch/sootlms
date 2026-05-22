@@ -18,7 +18,7 @@ const clerkHandler = clerkMiddleware(async (auth, request) => {
   }
 });
 
-export default async function middleware(request: NextRequest, event: any) {
+export default async function proxy(request: NextRequest, event: any) {
   // Bypass Clerk entirely if keys are missing (Dev/Testing/No-Auth mode)
   if (!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || !process.env.CLERK_SECRET_KEY) {
     return NextResponse.next();
@@ -33,5 +33,7 @@ export const config = {
     '/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
     // Always run for API routes
     '/(api|trpc)(.*)',
+    // Always run for Clerk internal routes
+    '/__clerk/(.*)',
   ],
 };

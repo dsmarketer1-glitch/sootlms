@@ -62,19 +62,14 @@ function NavbarContent({ isSignedIn, role, isMock, hasClerkKeys }: { isSignedIn:
 
 export function Navbar() {
   const hasClerkKeys = !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
-  const { isSignedIn: isMockSignedIn, role: mockRole } = useMockAuth();
+  const { isSignedIn, role, isLoaded } = useMockAuth();
 
-  if (hasClerkKeys) {
-    return <ClerkNavbar mockRole={mockRole} isMockSignedIn={isMockSignedIn} hasClerkKeys={hasClerkKeys} />;
-  }
-
-  return <NavbarContent isSignedIn={isMockSignedIn} role={mockRole} isMock={true} hasClerkKeys={false} />;
-}
-
-function ClerkNavbar({ mockRole, isMockSignedIn, hasClerkKeys }: { mockRole: string, isMockSignedIn: boolean, hasClerkKeys: boolean }) {
-  const { isSignedIn: isClerkSignedIn } = useAuth();
-  const isSignedIn = isClerkSignedIn || isMockSignedIn;
-  const role = isClerkSignedIn ? 'USER' : mockRole;
-
-  return <NavbarContent isSignedIn={isSignedIn} role={role} isMock={!isClerkSignedIn} hasClerkKeys={hasClerkKeys} />;
+  return (
+    <NavbarContent 
+      isSignedIn={isSignedIn} 
+      role={role} 
+      isMock={!hasClerkKeys} 
+      hasClerkKeys={hasClerkKeys} 
+    />
+  );
 }
