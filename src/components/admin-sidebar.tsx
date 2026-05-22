@@ -12,7 +12,8 @@ import {
   CreditCard, 
   Settings,
   ChevronLeft,
-  Menu
+  Menu,
+  GraduationCap
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -20,6 +21,7 @@ import { Button } from "@/components/ui/button";
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/admin" },
   { icon: BookOpen, label: "Courses", href: "/admin/courses" },
+  { icon: GraduationCap, label: "Teachers", href: "/admin/teachers" },
   { icon: Users, label: "Students", href: "/admin/students" },
   { icon: Target, label: "Leads & CRM", href: "/admin/leads" },
   { icon: Video, label: "Live Classes", href: "/admin/live-classes" },
