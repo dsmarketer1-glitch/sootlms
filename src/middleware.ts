@@ -1,4 +1,6 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 
 const isPublicRoute = createRouteMatcher([
   "/",
@@ -10,16 +12,20 @@ const isPublicRoute = createRouteMatcher([
   "/api/webhooks(.*)", // Razorpay and Clerk webhooks should be public but verified
 ]);
 
-export default clerkMiddleware(async (auth, request) => {
-  // Bypass Clerk if keys are missing (Dev/Testing mode)
-  if (!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY) {
-    return;
-  }
-
+const clerkHandler = clerkMiddleware(async (auth, request) => {
   if (!isPublicRoute(request)) {
     await auth.protect();
   }
 });
+
+export default async function middleware(request: NextRequest, event: any) {
+  // Bypass Clerk entirely if keys are missing (Dev/Testing/No-Auth mode)
+  if (!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || !process.env.CLERK_SECRET_KEY) {
+    return NextResponse.next();
+  }
+
+  return clerkHandler(request, event);
+}
 
 export const config = {
   matcher: [
