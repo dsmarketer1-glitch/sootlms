@@ -3,6 +3,7 @@
 import { useState, useEffect, createContext, useContext } from 'react';
 import { useUser, ClerkProvider } from "@clerk/nextjs";
 import { supabase } from '@/lib/supabase';
+import { useRouter, usePathname } from 'next/navigation';
 
 export type Role = 'GUEST' | 'STUDENT' | 'ADMIN' | 'TEACHER';
 
@@ -18,7 +19,56 @@ interface MockAuthContextType {
 
 const MockAuthContext = createContext<MockAuthContextType | undefined>(undefined);
 
-// 1. Clerk Authentication Provider (nested inside <ClerkProvider>)
+// ──────────────────────────────────────────────
+// Helper: determine role from email + Clerk metadata + Supabase profile
+// ──────────────────────────────────────────────
+function resolveRoleFromEmail(email: string): 'admin' | 'student' {
+  if (email.toLowerCase() === 'ds.marketer1@gmail.com') return 'admin';
+  return 'student';
+}
+
+function mapDbRoleToContextRole(dbRole: string): Role {
+  if (dbRole === 'admin') return 'ADMIN';
+  if (dbRole === 'trainer') return 'TEACHER';
+  return 'STUDENT';
+}
+
+// ──────────────────────────────────────────────
+// Component: Automatic role-based redirect after login
+// ──────────────────────────────────────────────
+function RoleRedirector() {
+  const { isSignedIn, role, isLoaded } = useMockAuth();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  useEffect(() => {
+    if (!isLoaded || !isSignedIn) return;
+
+    // Only redirect from public/marketing pages (not from dashboard/admin/teacher pages)
+    const isOnPublicPage = pathname === '/' || 
+      pathname.startsWith('/courses') || 
+      pathname.startsWith('/about') || 
+      pathname.startsWith('/contact') ||
+      pathname.startsWith('/sign-');
+
+    if (!isOnPublicPage) return;
+
+    // Redirect to the appropriate dashboard
+    if (role === 'ADMIN') {
+      router.replace('/admin');
+    } else if (role === 'TEACHER') {
+      router.replace('/teacher');
+    } else if (role === 'STUDENT') {
+      router.replace('/dashboard');
+    }
+  }, [isSignedIn, role, isLoaded, pathname, router]);
+
+  return null;
+}
+
+// ──────────────────────────────────────────────
+// 1. Clerk Authentication Provider
+// ──────────────────────────────────────────────
 function ClerkAuthProvider({ children }: { children: React.ReactNode }) {
   const { user, isLoaded: isClerkLoaded, isSignedIn: isClerkSignedIn } = useUser();
   const [role, setRoleState] = useState<Role>('GUEST');
@@ -37,73 +87,84 @@ function ClerkAuthProvider({ children }: { children: React.ReactNode }) {
       try {
         const email = user.primaryEmailAddress?.emailAddress || "";
         
-        // Fetch profile from Supabase
-        let { data: profile, error } = await supabase
-          .from('user_profiles')
-          .select('*')
-          .eq('clerk_id', user.id)
-          .maybeSingle();
-
-        if (error && error.code !== 'PGRST116') {
-          console.error("Error fetching user profile:", error);
+        // ── Step 1: Determine role from Clerk publicMetadata (most reliable source) ──
+        const clerkRole = (user.publicMetadata as any)?.role as string | undefined;
+        
+        // ── Step 2: Determine role from email (hardcoded admin check) ──
+        const emailRole = resolveRoleFromEmail(email);
+        
+        // ── Step 3: Pick the best role ──
+        // Priority: admin email override > Clerk metadata > default student
+        let resolvedDbRole: string;
+        if (emailRole === 'admin') {
+          resolvedDbRole = 'admin';
+        } else if (clerkRole) {
+          resolvedDbRole = clerkRole; // 'trainer', 'admin', 'student'
+        } else {
+          resolvedDbRole = 'student';
         }
 
-        // Auto-seed admin or create new student profile if missing
-        if (!profile) {
-          const isSystemAdmin = email.toLowerCase() === 'ds.marketer1@gmail.com';
-          const assignedDbRole = isSystemAdmin ? 'admin' : 'student';
-
-          const newProfile = {
-            clerk_id: user.id,
-            email: email,
-            full_name: user.fullName || user.username || "Anonymous Learner",
-            role: assignedDbRole,
-            avatar_url: user.imageUrl || null,
-            is_active: true,
-          };
-
-          const { data: insertedProfile, error: insertError } = await supabase
+        // ── Step 4: Try to sync with Supabase (best-effort, non-blocking) ──
+        try {
+          let { data: profile, error } = await supabase
             .from('user_profiles')
-            .insert(newProfile)
-            .select()
-            .single();
+            .select('*')
+            .eq('clerk_id', user.id)
+            .maybeSingle();
 
-          if (insertError) {
-            console.error("Error creating user profile in Supabase:", insertError);
-          } else {
-            profile = insertedProfile;
+          if (error && error.code !== 'PGRST116' && error.code !== 'PGRST205') {
+            console.warn("Supabase profile fetch warning:", error.message);
           }
-        } else {
-          // If profile exists, check if email is admin email and role is not admin
-          if (email.toLowerCase() === 'ds.marketer1@gmail.com' && profile.role !== 'admin') {
-            const { data: updatedProfile } = await supabase
+
+          if (!profile && !error?.code?.startsWith('PGRST')) {
+            // Profile doesn't exist — create it
+            const newProfile = {
+              clerk_id: user.id,
+              email: email,
+              full_name: user.fullName || user.username || "Anonymous Learner",
+              role: resolvedDbRole,
+              avatar_url: user.imageUrl || null,
+              is_active: true,
+            };
+
+            const { data: insertedProfile, error: insertError } = await supabase
               .from('user_profiles')
-              .update({ role: 'admin' })
-              .eq('clerk_id', user.id)
+              .insert(newProfile)
               .select()
               .single();
-            if (updatedProfile) {
-              profile = updatedProfile;
+
+            if (!insertError && insertedProfile) {
+              profile = insertedProfile;
             }
+          } else if (profile) {
+            // Profile exists — enforce admin email override
+            if (emailRole === 'admin' && profile.role !== 'admin') {
+              const { data: updatedProfile } = await supabase
+                .from('user_profiles')
+                .update({ role: 'admin' })
+                .eq('clerk_id', user.id)
+                .select()
+                .single();
+              if (updatedProfile) {
+                profile = updatedProfile;
+              }
+            }
+            // Use the Supabase role if it was fetched successfully
+            resolvedDbRole = profile.role;
           }
+        } catch (supabaseErr) {
+          // Supabase not available — continue with Clerk-derived role
+          console.warn("Supabase sync skipped:", supabaseErr);
         }
 
-        // Map Supabase role to Context Role
-        if (profile) {
-          const dbRole = profile.role;
-          if (dbRole === 'admin') {
-            setRoleState('ADMIN');
-          } else if (dbRole === 'trainer') {
-            setRoleState('TEACHER');
-          } else {
-            setRoleState('STUDENT');
-          }
-        } else {
-          setRoleState('STUDENT'); // Fallback
-        }
+        // ── Step 5: Set the context role ──
+        setRoleState(mapDbRoleToContextRole(resolvedDbRole));
       } catch (e) {
         console.error("Auth sync failed", e);
-        setRoleState('STUDENT');
+        // Even on total failure, use email-based check as last resort
+        const email = user.primaryEmailAddress?.emailAddress || "";
+        const fallbackRole = resolveRoleFromEmail(email);
+        setRoleState(mapDbRoleToContextRole(fallbackRole));
       } finally {
         setIsSyncLoaded(true);
       }
@@ -112,7 +173,7 @@ function ClerkAuthProvider({ children }: { children: React.ReactNode }) {
     syncProfile();
   }, [user, isClerkLoaded, isClerkSignedIn]);
 
-  const setRole = (newRole: Role) => {
+  const setRole = (_newRole: Role) => {
     console.warn("Manual role switcher is disabled in live mode. Role is derived from authentication profile.");
   };
 
@@ -128,12 +189,15 @@ function ClerkAuthProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <MockAuthContext.Provider value={contextValue}>
+      <RoleRedirector />
       {children}
     </MockAuthContext.Provider>
   );
 }
 
-// 2. Local Authentication Provider (Used when Clerk keys are missing)
+// ──────────────────────────────────────────────
+// 2. Local Authentication Provider (when Clerk keys are missing)
+// ──────────────────────────────────────────────
 function LocalAuthProvider({ children }: { children: React.ReactNode }) {
   const [role, setRoleState] = useState<Role>(() => {
     if (typeof window !== 'undefined') {
@@ -210,7 +274,9 @@ function LocalAuthProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
+// ──────────────────────────────────────────────
 // 3. Central Entry Point Wrapper
+// ──────────────────────────────────────────────
 export function MockAuthProvider({ children }: { children: React.ReactNode }) {
   const hasClerkKeys = !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
 

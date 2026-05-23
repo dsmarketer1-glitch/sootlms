@@ -1,11 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { UserButton, SignInButton, SignUpButton, useAuth } from "@clerk/nextjs";
+import { UserButton, SignInButton, SignUpButton } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { useMockAuth } from "@/lib/mock-auth";
 
-function NavbarContent({ isSignedIn, role, isMock, hasClerkKeys }: { isSignedIn: boolean, role: string, isMock: boolean, hasClerkKeys: boolean }) {
+function NavbarContent({ isSignedIn, role, hasClerkKeys }: { isSignedIn: boolean, role: string, hasClerkKeys: boolean }) {
+  // Determine the correct dashboard link for the signed-in user
+  const dashboardHref = role === 'ADMIN' ? '/admin' 
+    : role === 'TEACHER' ? '/teacher' 
+    : '/dashboard';
+
+  const dashboardLabel = role === 'ADMIN' ? 'Admin Panel'
+    : role === 'TEACHER' ? 'Teacher Portal'
+    : 'Dashboard';
+
   return (
     <header className="sticky top-0 z-50 w-full glass border-b">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
@@ -24,34 +33,24 @@ function NavbarContent({ isSignedIn, role, isMock, hasClerkKeys }: { isSignedIn:
             <>
               {hasClerkKeys ? (
                 <>
-                  <SignInButton mode="modal">
+                  <SignInButton mode="modal" forceRedirectUrl="/">
                     <Button variant="ghost" size="sm">Sign In</Button>
                   </SignInButton>
-                  <SignUpButton mode="modal">
+                  <SignUpButton mode="modal" forceRedirectUrl="/">
                     <Button size="sm">Get Started</Button>
                   </SignUpButton>
                 </>
               ) : (
-                <Button size="sm" onClick={() => alert("Please switch role to STUDENT or ADMIN using the bottom-right switcher for demo.")}>Get Started</Button>
+                <Button size="sm" onClick={() => alert("Please switch role using the bottom-right switcher for demo.")}>Get Started</Button>
               )}
             </>
           ) : (
             <>
-              {role === 'ADMIN' ? (
-                <Link href="/admin">
-                  <Button variant="ghost" size="sm" className="text-primary font-bold">Admin Panel</Button>
-                </Link>
-              ) : role === 'TEACHER' ? (
-                <Link href="/teacher">
-                  <Button variant="ghost" size="sm" className="text-primary font-bold">Teacher Portal</Button>
-                </Link>
-              ) : (
-                <Link href="/dashboard">
-                  <Button variant="ghost" size="sm">Dashboard</Button>
-                </Link>
-              )}
-              {!isMock && hasClerkKeys && <UserButton />}
-              {isMock && <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center text-white text-xs font-bold">{role[0]}</div>}
+              <Link href={dashboardHref}>
+                <Button variant="ghost" size="sm" className="text-primary font-bold">{dashboardLabel}</Button>
+              </Link>
+              {hasClerkKeys && <UserButton />}
+              {!hasClerkKeys && <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center text-white text-xs font-bold">{role[0]}</div>}
             </>
           )}
         </div>
@@ -68,7 +67,6 @@ export function Navbar() {
     <NavbarContent 
       isSignedIn={isSignedIn} 
       role={role} 
-      isMock={!hasClerkKeys} 
       hasClerkKeys={hasClerkKeys} 
     />
   );

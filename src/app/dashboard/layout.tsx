@@ -11,16 +11,38 @@ export default function StudentDashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { role } = useMockAuth();
+  const { role, isLoaded } = useMockAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (role !== 'STUDENT' && role !== 'ADMIN' && role !== 'TEACHER') {
-      router.push('/');
+    if (!isLoaded) return;
+    // Admin should be redirected to admin panel, not student dashboard
+    if (role === 'ADMIN') {
+      router.replace('/admin');
+      return;
     }
-  }, [role, router]);
+    // Teacher should be redirected to teacher portal
+    if (role === 'TEACHER') {
+      router.replace('/teacher');
+      return;
+    }
+    // Guests should go to login
+    if (role === 'GUEST') {
+      router.replace('/');
+      return;
+    }
+  }, [role, isLoaded, router]);
 
   const hasClerkKeys = !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
+
+  // Don't render until loaded and verified as student
+  if (!isLoaded || role !== 'STUDENT') {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">

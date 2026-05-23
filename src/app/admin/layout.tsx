@@ -11,16 +11,33 @@ export default function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { role } = useMockAuth();
+  const { role, isLoaded } = useMockAuth();
   const router = useRouter();
 
   useEffect(() => {
+    if (!isLoaded) return;
+    // Only admin can access this layout
     if (role !== 'ADMIN') {
-      router.push('/');
+      if (role === 'TEACHER') {
+        router.replace('/teacher');
+      } else if (role === 'STUDENT') {
+        router.replace('/dashboard');
+      } else {
+        router.replace('/');
+      }
     }
-  }, [role, router]);
+  }, [role, isLoaded, router]);
 
   const hasClerkKeys = !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
+
+  // Don't render anything until loaded and verified as admin
+  if (!isLoaded || role !== 'ADMIN') {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
