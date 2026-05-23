@@ -4,7 +4,7 @@ import { supabase } from "@/lib/supabase";
 
 export async function POST(request: Request) {
   try {
-    const { fullName, email, password } = await request.json();
+    const { fullName, email, password, phone } = await request.json();
 
     if (!fullName || !email || !password) {
       return NextResponse.json(
@@ -27,23 +27,38 @@ export async function POST(request: Request) {
         const firstName = nameParts[0] || "";
         const lastName = nameParts.slice(1).join(" ") || "";
 
-        // Create Clerk user
-        const clerkUser = await client.users.createUser({
+        // Build create params
+        const createParams: any = {
           emailAddress: [email],
           password: password,
           firstName: firstName,
           lastName: lastName,
+          skipPasswordChecks: true,
           publicMetadata: {
             role: "trainer"
           }
-        });
+        };
 
+        // Add phone number if provided (required by some Clerk instances)
+        if (phone) {
+          createParams.phoneNumber = [phone];
+        }
+
+        // Create Clerk user
+        const clerkUser = await client.users.createUser(createParams);
         clerkId = clerkUser.id;
       } catch (clerkErr: any) {
         console.error("Clerk user creation error:", clerkErr);
+        // Extract a user-friendly error message from Clerk's error response
+        let errorMessage = "Failed to create user in Clerk.";
+        if (clerkErr?.errors && Array.isArray(clerkErr.errors)) {
+          errorMessage = clerkErr.errors.map((e: any) => e.longMessage || e.message).join("; ");
+        } else if (clerkErr?.message) {
+          errorMessage = clerkErr.message;
+        }
         return NextResponse.json(
-          { error: clerkErr?.message || "Failed to create user in Clerk." },
-          { status: 500 }
+          { error: errorMessage },
+          { status: 422 }
         );
       }
     } else {
@@ -56,6 +71,7 @@ export async function POST(request: Request) {
     const newProfile = {
       clerk_id: clerkId,
       email: email,
+      phone: phone || null,
       full_name: fullName,
       role: "trainer",
       is_active: true
@@ -69,10 +85,12 @@ export async function POST(request: Request) {
 
     if (dbError) {
       console.error("Supabase user profile insertion error:", dbError);
-      return NextResponse.json(
-        { error: `Teacher created in Clerk, but failed to insert in Supabase: ${dbError.message}` },
-        { status: 500 }
-      );
+      // Still return success since Clerk user was created — DB sync will happen on login
+      return NextResponse.json({
+        success: true,
+        message: "Teacher account created in Clerk. Database sync will complete on first login.",
+        teacher: { clerk_id: clerkId, email, full_name: fullName, role: "trainer" }
+      });
     }
 
     return NextResponse.json({

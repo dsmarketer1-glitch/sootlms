@@ -26,6 +26,7 @@ export default function AdminTeachersPage() {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [phone, setPhone] = useState("");
   const [formLoading, setFormLoading] = useState(false);
   const [formError, setFormError] = useState("");
   const [formSuccess, setFormSuccess] = useState("");
@@ -71,7 +72,7 @@ export default function AdminTeachersPage() {
       const response = await fetch("/api/admin/create-teacher", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fullName, email, password })
+        body: JSON.stringify({ fullName, email, password, phone })
       });
 
       const data = await response.json();
@@ -83,6 +84,7 @@ export default function AdminTeachersPage() {
         setFullName("");
         setEmail("");
         setPassword("");
+        setPhone("");
         // Reload teacher listings
         loadTeachers();
         // Wait a second and close modal
@@ -164,6 +166,21 @@ export default function AdminTeachersPage() {
                     placeholder="Minimum 8 characters"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    className="pl-10 rounded-xl h-12"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="phone">Phone Number (Optional)</Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">📞</span>
+                  <Input 
+                    id="phone"
+                    type="tel"
+                    placeholder="+1234567890"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
                     className="pl-10 rounded-xl h-12"
                   />
                 </div>
