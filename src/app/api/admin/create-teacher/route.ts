@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { clerkClient } from "@clerk/nextjs/server";
-import { supabase } from "@/lib/supabase";
+import { supabaseAdmin } from "@/lib/supabase-admin";
 
 export async function POST(request: Request) {
   try {
@@ -77,7 +77,7 @@ export async function POST(request: Request) {
       is_active: true
     };
 
-    const { data: profile, error: dbError } = await supabase
+    const { data: profile, error: dbError } = await supabaseAdmin
       .from("user_profiles")
       .insert(newProfile)
       .select()

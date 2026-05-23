@@ -1,17 +1,54 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search, Mail, MoreHorizontal, UserCheck, ShieldCheck, GraduationCap } from "lucide-react";
 
-const MOCK_STUDENTS = [
-  { id: "1", name: "Rahul Sharma", email: "rahul@example.com", courses: 2, progress: "65%", joined: "2024-04-10" },
-  { id: "2", name: "Priya Patel", email: "priya@example.com", courses: 1, progress: "30%", joined: "2024-04-15" },
-  { id: "3", name: "Amit Singh", email: "amit@example.com", courses: 3, progress: "90%", joined: "2024-03-20" },
-  { id: "4", name: "Sanya Gupta", email: "sanya@example.com", courses: 1, progress: "10%", joined: "2024-05-01" },
-];
+interface StudentProfile {
+  id: string;
+  full_name: string;
+  email: string;
+  created_at: string;
+}
 
 export default function StudentManagementPage() {
+  const [students, setStudents] = useState<StudentProfile[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  useEffect(() => {
+    const fetchStudents = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("user_profiles")
+          .select("*")
+          .eq("role", "student")
+          .order("created_at", { ascending: false });
+
+        if (error) {
+          console.error("Error fetching students:", error);
+        } else if (data) {
+          setStudents(data);
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchStudents();
+  }, []);
+
+  const filteredStudents = students.filter(student => 
+    student.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    student.email?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   return (
     <div className="space-y-8">
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
@@ -21,7 +58,7 @@ export default function StudentManagementPage() {
         </div>
         <div className="flex items-center space-x-2 text-sm font-medium bg-primary/10 text-primary px-4 py-2 rounded-full">
           <GraduationCap className="h-4 w-4" />
-          <span>{MOCK_STUDENTS.length} Total Enrolled</span>
+          <span>{students.length} Total Enrolled</span>
         </div>
       </div>
 
@@ -31,67 +68,71 @@ export default function StudentManagementPage() {
             <CardTitle className="text-lg">Active Students</CardTitle>
             <div className="relative w-full md:w-80">
                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-               <Input placeholder="Search by name, email..." className="pl-10 rounded-full bg-background" />
+               <Input 
+                 placeholder="Search by name, email..." 
+                 className="pl-10 rounded-full bg-background"
+                 value={searchQuery}
+                 onChange={(e) => setSearchQuery(e.target.value)}
+               />
             </div>
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left">
-              <thead className="bg-muted/30 text-muted-foreground font-medium uppercase tracking-widest text-[10px]">
-                <tr>
-                  <th className="px-6 py-4">Student</th>
-                  <th className="px-6 py-4">Courses</th>
-                  <th className="px-6 py-4">Avg. Progress</th>
-                  <th className="px-6 py-4">Joined Date</th>
-                  <th className="px-6 py-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {MOCK_STUDENTS.map((student) => (
-                  <tr key={student.id} className="hover:bg-muted/10 transition-colors">
-                    <td className="px-6 py-4">
-                       <div className="flex items-center space-x-3">
-                          <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center font-bold text-primary">
-                             {student.name[0]}
-                          </div>
-                          <div>
-                             <div className="font-bold">{student.name}</div>
-                             <div className="text-xs text-muted-foreground">{student.email}</div>
-                          </div>
-                       </div>
-                    </td>
-                    <td className="px-6 py-4">
-                       <Badge variant="outline" className="rounded-full">{student.courses} Courses</Badge>
-                    </td>
-                    <td className="px-6 py-4">
-                       <div className="flex items-center space-x-2">
-                          <div className="flex-1 w-24 h-1.5 bg-muted rounded-full overflow-hidden">
-                             <div className="h-full bg-primary" style={{ width: student.progress }}></div>
-                          </div>
-                          <span className="font-bold text-xs">{student.progress}</span>
-                       </div>
-                    </td>
-                    <td className="px-6 py-4 text-muted-foreground">{student.joined}</td>
-                    <td className="px-6 py-4 text-right space-x-2">
-                       <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-blue-500">
-                          <Mail className="h-4 w-4" />
-                       </Button>
-                       <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-green-500">
-                          <UserCheck className="h-4 w-4" />
-                       </Button>
-                       <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-yellow-500">
-                          <ShieldCheck className="h-4 w-4" />
-                       </Button>
-                       <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
-                          <MoreHorizontal className="h-4 w-4" />
-                       </Button>
-                    </td>
+          {loading ? (
+            <div className="flex justify-center items-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            </div>
+          ) : filteredStudents.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              No students found.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-left">
+                <thead className="bg-muted/30 text-muted-foreground font-medium uppercase tracking-widest text-[10px]">
+                  <tr>
+                    <th className="px-6 py-4">Student</th>
+                    <th className="px-6 py-4">Joined Date</th>
+                    <th className="px-6 py-4 text-right">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y">
+                  {filteredStudents.map((student) => (
+                    <tr key={student.id} className="hover:bg-muted/10 transition-colors">
+                      <td className="px-6 py-4">
+                        <div className="flex items-center space-x-3">
+                            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center font-bold text-primary uppercase">
+                              {student.full_name?.[0] || '?'}
+                            </div>
+                            <div>
+                              <div className="font-bold">{student.full_name || 'Unknown'}</div>
+                              <div className="text-xs text-muted-foreground">{student.email}</div>
+                            </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-muted-foreground">
+                        {new Date(student.created_at).toLocaleDateString()}
+                      </td>
+                      <td className="px-6 py-4 text-right space-x-2">
+                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-blue-500">
+                            <Mail className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-green-500">
+                            <UserCheck className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-yellow-500">
+                            <ShieldCheck className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
+                            <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

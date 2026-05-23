@@ -104,57 +104,28 @@ function ClerkAuthProvider({ children }: { children: React.ReactNode }) {
           resolvedDbRole = 'student';
         }
 
-        // ── Step 4: Try to sync with Supabase (best-effort, non-blocking) ──
+        // ── Step 4: Sync with backend (Secure via Admin Client) ──
         try {
-          let { data: profile, error } = await supabase
-            .from('user_profiles')
-            .select('*')
-            .eq('clerk_id', user.id)
-            .maybeSingle();
-
-          if (error && error.code !== 'PGRST116' && error.code !== 'PGRST205') {
-            console.warn("Supabase profile fetch warning:", error.message);
-          }
-
-          if (!profile && !error?.code?.startsWith('PGRST')) {
-            // Profile doesn't exist — create it
-            const newProfile = {
-              clerk_id: user.id,
+          const syncRes = await fetch('/api/auth/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              clerkId: user.id,
               email: email,
-              full_name: user.fullName || user.username || "Anonymous Learner",
-              role: resolvedDbRole,
-              avatar_url: user.imageUrl || null,
-              is_active: true,
-            };
+              fullName: user.fullName || user.username,
+              imageUrl: user.imageUrl,
+              dbRole: resolvedDbRole
+            })
+          });
 
-            const { data: insertedProfile, error: insertError } = await supabase
-              .from('user_profiles')
-              .insert(newProfile)
-              .select()
-              .single();
-
-            if (!insertError && insertedProfile) {
-              profile = insertedProfile;
+          if (syncRes.ok) {
+            const syncData = await syncRes.json();
+            if (syncData.profile && syncData.profile.role) {
+              resolvedDbRole = syncData.profile.role;
             }
-          } else if (profile) {
-            // Profile exists — enforce admin email override
-            if (emailRole === 'admin' && profile.role !== 'admin') {
-              const { data: updatedProfile } = await supabase
-                .from('user_profiles')
-                .update({ role: 'admin' })
-                .eq('clerk_id', user.id)
-                .select()
-                .single();
-              if (updatedProfile) {
-                profile = updatedProfile;
-              }
-            }
-            // Use the Supabase role if it was fetched successfully
-            resolvedDbRole = profile.role;
           }
-        } catch (supabaseErr) {
-          // Supabase not available — continue with Clerk-derived role
-          console.warn("Supabase sync skipped:", supabaseErr);
+        } catch (syncErr) {
+          console.warn("Backend sync failed:", syncErr);
         }
 
         // ── Step 5: Set the context role ──
